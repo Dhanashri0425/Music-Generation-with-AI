@@ -1,0 +1,484 @@
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Music Generation with AI</title>
+<style>
+  :root{
+    --bg:#820C4A;
+    --card:#820C4A;
+    --accent:#E6479B;
+    --muted:#E8B5CB;
+    --glass: rgba(255,255,255,0.03);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:linear-gradient(180deg,#C74E7F 0%, #602b3f 60%);
+    color:FFF5F5;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+
+  .player {
+    width:100%;
+    max-width:880px;
+    background:linear-gradient(180deg,var(--card), rgba(8,12,18,0.9));
+    border-radius:14px;
+    box-shadow:0 8px 30px rgba(2,6,23,0.6);
+    padding:18px;
+    display:grid;
+    grid-template-columns: 1fr 340px;
+    gap:18px;
+  }
+  .controls{
+    padding:14px;
+    background:var(--glass);
+    border-radius:10px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .title{
+    font-size:18px;
+    font-weight:700;
+    letter-spacing:0.2px;
+  }
+  .sub{
+    color:var(--muted);
+    font-size:13px;
+    margin-top:4px;
+  }
+
+  .big-buttons{
+    display:flex;
+    gap:10px;
+    align-items:center;
+  }
+  button.icon{
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.06);
+    padding:10px 14px;
+    border-radius:10px;
+    color:inherit;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    font-weight:600;
+  }
+  button.icon:hover{transform:translateY(-2px)}
+  .primary{
+    background:linear-gradient(90deg,var(--accent),#C9477C);
+    color:FFF5F5;
+    border:none;
+  }
+  .progress-wrap{display:flex;align-items:center;gap:10px}
+  .time{font-size:13px;color:var(--muted);min-width:48px;text-align:center}
+  .progress{
+    -webkit-appearance:none;
+    appearance:none;
+    height:8px;
+    background:rgba(255,255,255,0.08);
+    border-radius:8px;
+    width:100%;
+    cursor:pointer;
+    outline:none;
+  }
+  .progress::-webkit-slider-thumb{ -webkit-appearance:none; width:14px;height:14px;border-radius:50%; background:var(--accent); box-shadow:0 2px 6px rgba(0,0,0,0.6); }
+  .volume-row{display:flex;align-items:center;gap:8px}
+  input[type="range"]{height:6px;background:rgba(255,255,255,0.06); border-radius:6px; outline:none; cursor:pointer;}
+  .side{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .drop{
+    padding:12px;
+    border-radius:10px;
+    border:2px dashed rgba(255,255,255,0.04);
+    min-height:120px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color:var(--muted);
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+  }
+  .drop.dragover{border-color:rgba(125,211,252,0.7); color:var(--accent); background:rgba(125,211,252,0.02)}
+
+  .playlist{
+    padding:12px;
+    background:var(--glass);
+    border-radius:10px;
+    max-height:300px;
+    overflow:auto;
+  }
+  .track{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px;
+    border-radius:8px;
+    gap:10px;
+    transition:background .12s;
+  }
+  .track:hover{background:rgba(255,255,255,0.02)}
+  .track.active{background:linear-gradient(90deg, rgba(125,211,252,0.08), rgba(96,165,250,0.04)); border-left:3px solid var(--accent); padding-left:6px}
+  .track .meta{display:flex;gap:10px;align-items:center;flex:1;min-width:0}
+  .track .meta .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .track .meta .small{color:var(--muted);font-size:13px}
+
+  .btn-small{background:transparent;border:0;color:var(--muted);cursor:pointer;padding:6px;border-radius:6px}
+  .btn-small:hover{color:var(--accent); transform:translateY(-1px)}
+
+  footer.hint{color:var(--muted); font-size:13px; text-align:center; padding-top:6px}
+  @media(max-width:880px){
+    .player{grid-template-columns:1fr; padding:12px}
+    .side{order:2}
+  }
+</style>
+</head>
+<body>
+  <div class="player" role="application" aria-label="Simple Music Player">
+    <div class="controls" aria-hidden="false">
+      <div>
+        <div class="title">Music Generation with AI </div>
+        <div class="sub">Add songs (mp3, wav, m4a, ogg). Drag & drop or click "Add tracks".</div>
+      </div>
+
+      <div class="big-buttons" role="group" aria-label="Playback controls">
+        <button id="prevBtn" class="icon btn-small" title="Previous">⏮ Prev</button>
+        <button id="playBtn" class="icon primary" title="Play / Pause">▶ Play</button>
+        <button id="nextBtn" class="icon btn-small" title="Next">Next ⏭</button>
+
+        <label for="addFiles" class="icon" style="margin-left:auto; cursor:pointer">
+          ➕ Add tracks
+        </label>
+        <input id="addFiles" type="file" accept="audio/*" multiple style="display:none" />
+      </div>
+
+      <div class="progress-wrap" aria-hidden="false">
+        <div class="time" id="currentTime">0:00</div>
+        <input id="progress" class="progress" type="range" min="0" max="100" value="0" />
+        <div class="time" id="duration">0:00</div>
+      </div>
+
+      <div class="volume-row" aria-label="Volume control">
+        <div style="min-width:64px;color:var(--muted)">Volume</div>
+        <input id="volume" type="range" min="0" max="1" step="0.01" value="0.9" />
+        <button id="shuffle" class="btn-small" title="Shuffle">🔀</button>
+        <button id="repeat" class="btn-small" title="Repeat">🔁</button>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button id="clearBtn" class="icon btn-small" title="Clear playlist">🗑 Clear</button>
+        <button id="removePlayed" class="icon btn-small" title="Remove played track">✂ Remove current</button>
+        <div style="flex:1"></div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div id="dropArea" class="drop" tabindex="0">Drop audio files here or click "Add tracks".</div>
+
+      <div class="playlist" id="playlist" aria-label="Playlist">
+      </div>
+      <div class="hint">Tip: use keyboard Space to Play/Pause, Arrow Left/Right to seek 5s.</div>
+    </div>
+  </div>
+  <audio id="audio" preload="metadata"></audio>
+
+<script>
+(function(){
+  const audio = document.getElementById('audio');
+  const addFiles = document.getElementById('addFiles');
+  const dropArea = document.getElementById('dropArea');
+  const playlistEl = document.getElementById('playlist');
+  const playBtn = document.getElementById('playBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const progress = document.getElementById('progress');
+  const currentTimeEl = document.getElementById('currentTime');
+  const durationEl = document.getElementById('duration');
+  const volume = document.getElementById('volume');
+  const clearBtn = document.getElementById('clearBtn');
+  const removePlayed = document.getElementById('removePlayed');
+  const shuffleBtn = document.getElementById('shuffle');
+  const repeatBtn = document.getElementById('repeat');
+
+  let tracks = []; // {name, url, file, duration}
+  let currentIndex = -1;
+  let isPlaying = false;
+  let shuffle = false;
+  let repeat = false;
+
+  function formatTime(s){
+    if (!isFinite(s)) return '0:00';
+    s = Math.floor(s);
+    const m = Math.floor(s/60);
+    const sec = s % 60;
+    return m + ':' + (sec < 10 ? '0'+sec : sec);
+  }
+
+  function renderPlaylist(){
+    playlistEl.innerHTML = '';
+    tracks.forEach((t, i) => {
+      const tr = document.createElement('div');
+      tr.className = 'track' + (i === currentIndex ? ' active' : '');
+      tr.dataset.index = i;
+      tr.innerHTML = `
+        <div class="meta">
+          <div style="width:40px;height:40px;border-radius:6px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));display:flex;align-items:center;justify-content:center;font-weight:700">${String(i+1)}</div>
+          <div style="min-width:0">
+            <div class="name" title="${escapeHtml(t.name)}">${t.name}</div>
+            <div class="small">${t.duration ? formatTime(t.duration) : 'unknown'}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-small playTrack" title="Play this">▶</button>
+          <button class="btn-small removeTrack" title="Remove">✖</button>
+        </div>
+      `;
+      playlistEl.appendChild(tr);
+    });
+  }
+
+  function escapeHtml(s){ return s.replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+  function addFilesToPlaylist(fileList){
+    const files = Array.from(fileList).filter(f => f.type.startsWith('audio/') || f.name.match(/\.(mp3|wav|ogg|m4a|flaxcc)$/i));
+    if (files.length === 0) return;
+    files.forEach(file => {
+      const url = URL.createObjectURL(file);
+      const name = file.name;
+      tracks.push({name, url, file, duration: null});
+      const temp = document.createElement('audio');
+      temp.src = url;
+      temp.preload = 'metadata';
+      temp.addEventListener('loadedmetadata', () => {
+        const t = tracks.find(tr => tr.url === url);
+        if (t) t.duration = temp.duration;
+        renderPlaylist();
+      }, {once:true});
+    });
+    if (currentIndex === -1) {
+      currentIndex = 0;
+      loadTrack(currentIndex);
+    }
+    renderPlaylist();
+  }
+
+  function loadTrack(i){
+    if (i < 0 || i >= tracks.length) return;
+    currentIndex = i;
+    audio.src = tracks[i].url;
+    audio.load();
+    renderPlaylist();
+  }
+
+  function playCurrent(){
+    if (currentIndex === -1 && tracks.length) {
+      loadTrack(0);
+    }
+    audio.play().then(()=> {
+      isPlaying = true;
+      playBtn.textContent = '⏸ Pause';
+      playBtn.classList.add('primary');
+    }).catch(err => {
+      isPlaying = true;
+      playBtn.textContent = '⏸  Pause';
+    });
+  }
+
+  function pauseCurrent(){
+    audio.pause();
+    isPlaying = false;
+    playBtn.textContent = '▶ Play';
+    playBtn.classList.remove('primary');
+  }
+
+  function playNext(){
+    if (tracks.length === 0) return;
+    if (shuffle) {
+      const next = Math.floor(Math.random()*tracks.length);
+      loadTrack(next);
+      playCurrent();
+      return;
+    }
+    let nextIndex = currentIndex + 1;
+    if (nextIndex >= tracks.length) {
+      if (repeat) nextIndex = 0; else { pauseCurrent(); return; }
+    }
+    loadTrack(nextIndex);
+    playCurrent();
+  }
+
+  function playPrev(){
+    if (audio.currentTime > 3) {
+      audio.currentTime = 0;
+      return;
+    }
+    let prevIndex = currentIndex - 1;
+    if (prevIndex < 0) {
+      if (repeat) prevIndex = tracks.length - 1; else return;
+    }
+    loadTrack(prevIndex);
+    playCurrent();
+  }
+  addFiles.addEventListener('change', (e) => addFilesToPlaylist(e.target.files));
+  dropArea.addEventListener('click', () => addFiles.click());
+  ['dragenter','dragover'].forEach(ev => {
+    dropArea.addEventListener(ev, (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
+  });
+  ['dragleave','drop','dragend'].forEach(ev => {
+    dropArea.addEventListener(ev, (e) => { e.preventDefault(); dropArea.classList.remove('dragover'); });
+  });
+  dropArea.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    if (dt && dt.files && dt.files.length) addFilesToPlaylist(dt.files);
+  });
+
+  playBtn.addEventListener('click', () => {
+    if (!isPlaying) playCurrent(); else pauseCurrent();
+  });
+  prevBtn.addEventListener('click', playPrev);
+  nextBtn.addEventListener('click', playNext);
+
+  
+  playlistEl.addEventListener('click', (e) => {
+    const playBtnEl = e.target.closest('.playTrack');
+    const removeBtn = e.target.closest('.removeTrack');
+    const trackEl = e.target.closest('.track');
+    if (playBtnEl) {
+      const idx = Number(playBtnEl.closest('.track').dataset.index);
+      loadTrack(idx);
+      playCurrent();
+      return;
+    }
+    if (removeBtn) {
+      const idx = Number(removeBtn.closest('.track').dataset.index);
+      const removed = tracks.splice(idx,1)[0];
+      // revoke objectURL
+      if (removed && removed.url) URL.revokeObjectURL(removed.url);
+      if (idx === currentIndex) {
+        if (tracks.length === 0) {
+          audio.pause(); audio.src = ''; currentIndex = -1; isPlaying = false;
+        } else {
+          const newIdx = Math.min(idx, tracks.length-1);
+          loadTrack(newIdx);
+          playCurrent();
+        }
+      } else if (idx < currentIndex) {
+        currentIndex--;
+      }
+      renderPlaylist();
+      return;
+    }
+    if (trackEl && !e.target.closest('button')) {
+      const idx = Number(trackEl.dataset.index);
+      loadTrack(idx);
+      playCurrent();
+    }
+  });
+  audio.addEventListener('timeupdate', () => {
+    if (audio.duration) {
+      const pct = (audio.currentTime / audio.duration) * 100;
+      progress.value = pct;
+      currentTimeEl.textContent = formatTime(audio.currentTime);
+      durationEl.textContent = formatTime(audio.duration);
+    } else {
+      currentTimeEl.textContent = formatTime(audio.currentTime);
+    }
+  });
+
+  audio.addEventListener('ended', () => {
+    if (repeat) {
+      audio.currentTime = 0;
+      playCurrent();
+    } else {
+      playNext();
+    }
+  });
+  progress.addEventListener('input', (e) => {
+    if (!audio.duration) return;
+    const pct = Number(progress.value);
+    audio.currentTime = (pct/100) * audio.duration;
+  });
+  volume.addEventListener('input', (e) => {
+    audio.volume = Number(volume.value);
+  });
+  audio.volume = Number(volume.value);
+  clearBtn.addEventListener('click', () => {
+    tracks.forEach(t => { if (t.url) URL.revokeObjectURL(t.url); });
+    tracks = [];
+    audio.pause();
+    audio.src = '';
+    currentIndex = -1;
+    isPlaying = false;
+    renderPlaylist();
+    playBtn.textContent = '▶ Play';
+  });
+
+  removePlayed.addEventListener('click', () => {
+    if (currentIndex === -1) return;
+    const removed = tracks.splice(currentIndex,1)[0];
+    if (removed && removed.url) URL.revokeObjectURL(removed.url);
+    if (tracks.length === 0) {
+      audio.pause(); audio.src = ''; currentIndex = -1; isPlaying = false;
+    } else {
+      const nextIdx = Math.min(currentIndex, tracks.length-1);
+      loadTrack(nextIdx);
+      playCurrent();
+    }
+    renderPlaylist();
+  });
+
+  shuffleBtn.addEventListener('click', () => {
+    shuffle = !shuffle;
+    shuffleBtn.style.color = shuffle ? 'var(--accent)' : '';
+  });
+  repeatBtn.addEventListener('click', () => {
+    repeat = !repeat;
+    repeatBtn.style.color = repeat ? 'var(--accent)' : '';
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      (isPlaying ? pauseCurrent() : playCurrent());
+    } else if (e.key === 'ArrowRight') {
+      audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
+    } else if (e.key === 'ArrowLeft') {
+      audio.currentTime = Math.max(0, audio.currentTime - 5);
+    } else if (e.key === 'ArrowUp') {
+      volume.value = Math.min(1, Number(volume.value) + 0.05);
+      audio.volume = Number(volume.value);
+    } else if (e.key === 'ArrowDown') {
+      volume.value = Math.max(0, Number(volume.value) - 0.05);
+      audio.volume = Number(volume.value);
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    tracks.forEach(t => { if (t.url) URL.revokeObjectURL(t.url); });
+  });
+
+
+  window.addEventListener('paste', (e) => {
+    if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length) {
+      addFilesToPlaylist(e.clipboardData.files);
+    }
+  });
+
+  dropArea.addEventListener('focus', () => dropArea.classList.add('dragover'));
+  dropArea.addEventListener('blur', () => dropArea.classList.remove('dragover'));
+
+  renderPlaylist();
+})();
+</script>
+</body>
+</html>
